@@ -1,0 +1,154 @@
+---
+config:
+  layout: elk
+---
+classDiagram
+    class UserRole {
+        <<enumeration>>
+        USER
+        ADMIN
+    }
+    class BookingStatus {
+        <<enumeration>>
+        PENDING
+        CONFIRMED
+        ACTIVE
+        COMPLETED
+        CANCELLED
+        REJECTED
+    }
+    class VerificationStatus {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REJECTED
+    }
+    class PaymentType {
+        <<enumeration>>
+        RENTAL_FEE
+        DEPOSIT_BLOCK
+        DEPOSIT_REFUND
+    }
+
+    class User {
+        -UUID id
+        -String email
+        -String passwordHash
+        -UserRole role
+        -Profile profile
+        +register()
+        +login()
+        +updateProfile()
+        +isVerified() Boolean
+        +getAverageRating() Float
+    }
+
+    class UserKYC {
+        -UUID id
+        -String documentType
+        -String encryptedDocNumber
+        -VerificationStatus status
+        +uploadDocument(file)
+        +verify()
+        +reject(reason)
+    }
+
+    class Tool {
+        -UUID id
+        -String title
+        -String description
+        -Money pricePerDay
+        -Money depositAmount
+        -Location location
+        -Boolean isAvailable
+        +calculatePrice(days: Int) Money
+        +checkAvailability(startDate, endDate) Boolean
+        +addPhoto(url)
+        +updateLocation(lat, lon)
+    }
+
+    class Booking {
+        -UUID id
+        -DateTime startDate
+        -DateTime endDate
+        -Money totalPrice
+        -BookingStatus status
+        +createRequest()
+        +confirm()
+        +reject()
+        +startRental()
+        +completeRental()
+        +cancel()
+        -generateAgreement()
+    }
+
+    class RentalAgreement {
+        -UUID id
+        -String pdfUrl
+        -String contentHash
+        +generatePDF(bookingData)
+        +sign()
+    }
+
+    class Payment {
+        -UUID id
+        -String transactionId
+        -Money amount
+        -PaymentType type
+        +process()
+        +refund()
+        +captureDeposit()
+    }
+
+    class Review {
+        -UUID id
+        -Int rating
+        -String comment
+        +publish()
+        +report()
+    }
+
+    class Dispute {
+        -UUID id
+        -String reason
+        -Money claimedAmount
+        +open()
+        +resolve(adminNote)
+        +dismiss()
+    }
+
+    class SearchService {
+        <<Service>>
+        +searchTools(query, location, radius)
+        +filterByCategory(category)
+    }
+
+    class PaymentGateway {
+        <<Interface>>
+        +authorizeDeposit(amount, cardToken)
+        +charge(amount, token)
+        +releaseDeposit(transactionId)
+    }
+
+    class NotificationService {
+        <<Service>>
+        +sendEmail(to, subject, body)
+        +sendPush(userId, message)
+    }
+
+    User "1" *-- "1" UserKYC : possesses
+    User "1" o-- "0..*" Tool : owns
+    User "1" -- "0..*" Booking : makes (as renter)
+    User "1" -- "0..*" Dispute : reports
+
+    Tool "1" -- "0..*" Booking : is rented in
+    Tool "1" *-- "0..*" Review : receives
+
+    Booking "1" *-- "1" RentalAgreement : generates
+    Booking "1" *-- "0..*" Payment : triggers
+    Booking "1" -- "0..*" Review : allows
+    Booking "1" -- "0..1" Dispute : can have
+
+    SearchService ..> Tool : filters
+    Booking ..> PaymentGateway : uses
+    Booking ..> NotificationService : triggers
