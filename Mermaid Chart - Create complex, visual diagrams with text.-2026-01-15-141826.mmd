@@ -1,0 +1,150 @@
+---
+config:
+  layout: elk
+  look: neo
+  theme: default
+---
+erDiagram
+    USERS ||--o{ USER_KYC : "posiada (1:1)"
+    USERS ||--o{ TOOLS : "jest właścicielem"
+    USERS ||--o{ BOOKINGS : "wynajmuje (jako najemca)"
+    USERS ||--o{ REVIEWS : "pisze opinie"
+    USERS ||--o{ DISPUTES : "zgłasza/uczestniczy"
+    USERS ||--o{ CHAT_MESSAGES : "wysyła"
+
+    TOOLS ||--o{ TOOL_IMAGES : "ma zdjęcia"
+    TOOLS ||--o{ BOOKINGS : "jest przedmiotem najmu"
+    TOOLS }|--|| CATEGORIES : "należy do"
+
+    BOOKINGS ||--o{ PAYMENTS : "generuje"
+    BOOKINGS ||--o| RENTAL_AGREEMENTS : "ma umowę (PDF)"
+    BOOKINGS ||--o{ REVIEWS : "podlega ocenie"
+    BOOKINGS ||--o{ DISPUTES : "dotyczy sporu"
+
+    USERS {
+        uuid id PK
+        string email UK "Unikalny"
+        string password_hash
+        string first_name
+        string last_name
+        string phone_number
+        string avatar_url
+        enum role "USER, ADMIN"
+        boolean is_verified "Status weryfikacji tożsamości"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "Soft delete"
+    }
+
+    USER_KYC {
+        uuid id PK
+        uuid user_id FK
+        string document_type "PASSPORT, ID_CARD"
+        string encrypted_document_number "Szyfrowane AES-256"
+        string document_scan_url "Ścieżka do S3 (zabezpieczona)"
+        enum verification_status "PENDING, APPROVED, REJECTED"
+        text rejection_reason
+        timestamp reviewed_at
+        timestamp created_at
+    }
+
+    CATEGORIES {
+        int id PK
+        string name
+        string slug UK
+        int parent_id FK "Dla podkategorii"
+    }
+
+    TOOLS {
+        uuid id PK
+        uuid owner_id FK
+        int category_id FK
+        string title
+        text description
+        decimal price_per_day "Przechowywane precyzyjnie"
+        decimal deposit_amount "Kaucja"
+        string currency "PLN, EUR"
+        float latitude "Do mapy"
+        float longitude "Do mapy"
+        string address_city
+        string address_zip
+        boolean is_available
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    TOOL_IMAGES {
+        uuid id PK
+        uuid tool_id FK
+        string image_url "S3 URL"
+        int display_order
+        boolean is_main
+    }
+
+    BOOKINGS {
+        uuid id PK
+        uuid tool_id FK
+        uuid renter_id FK
+        timestamp start_date
+        timestamp end_date
+        decimal total_price
+        decimal deposit_held
+        enum status "PENDING, CONFIRMED, REJECTED, ACTIVE, COMPLETED, CANCELLED"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENTS {
+        uuid id PK
+        uuid booking_id FK
+        string provider_transaction_id "ID ze Stripe/P24"
+        enum type "RENTAL_FEE, DEPOSIT_BLOCK, DEPOSIT_REFUND, PENALTY"
+        decimal amount
+        string currency
+        enum status "PENDING, SUCCESS, FAILED, REFUNDED"
+        jsonb metadata "Dodatkowe dane z bramki"
+        timestamp created_at
+    }
+
+    RENTAL_AGREEMENTS {
+        uuid id PK
+        uuid booking_id FK
+        string pdf_url "Ścieżka do S3"
+        string pdf_hash "Suma kontrolna pliku dla celów prawnych"
+        timestamp generated_at
+    }
+
+    REVIEWS {
+        uuid id PK
+        uuid booking_id FK
+        uuid reviewer_id FK
+        uuid target_user_id FK "Oceniany użytkownik (Właściciel lub Najemca)"
+        uuid tool_id FK "Opcjonalnie: ocena konkretnego sprzętu"
+        int rating "1-5"
+        text comment
+        enum type "RENTER_TO_OWNER, OWNER_TO_RENTER"
+        timestamp created_at
+    }
+
+    DISPUTES {
+        uuid id PK
+        uuid booking_id FK
+        uuid reporter_id FK
+        enum reason "DAMAGE, LATE_RETURN, SCAM, OTHER"
+        text description
+        decimal claimed_amount
+        enum status "OPEN, IN_PROGRESS, RESOLVED, DISMISSED"
+        text admin_resolution_notes
+        timestamp created_at
+        timestamp resolved_at
+    }
+
+    CHAT_MESSAGES {
+        uuid id PK
+        uuid booking_id FK
+        uuid sender_id FK
+        text content
+        timestamp sent_at
+        timestamp read_at
+    }
